@@ -1,12 +1,12 @@
+#include <algorithm>
 #include <iostream>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include <signal.h>
 #include <unistd.h>
-#include <string_view>
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <sstream>
-
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -29,11 +29,13 @@ namespace {
         break;
       case sdb::process_state::terminated:
         std::cout << "terminated with signal "
-                  << sigabbrev_np(reason.info);
+                  << strsignal(reason.info);
+                  //<< sigabbrev_np(reason.info);
         break;
       case sdb::process_state::stopped:
         std::cout << "stopped with signal "
-                  << sigabbrev_np(reason.info);
+                  << strsignal(reason.info);
+                  //<< sigabbrev_np(reason.info);
         break;
       case sdb::process_state::running:
         break;
