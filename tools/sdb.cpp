@@ -11,55 +11,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include <libsdb/libsdb.hpp>
+#include <libsdb/process.hpp>
+#include <libsdb/error.hpp>
 
 namespace {
-  pid_t attach(int argc, const char** argv) {
-    pid_t pid = 0;
-    
-    if (argc == 3 && argv[1] == std::string_view("-p")) {
-      // Passing in the PID
-      pid = std::atoi(argv[2]);
-      
-      if (pid <= 0) {
-        std::cerr << "Invalid pid\n";
-        return -1;
-      }
-
-      if (ptrace(PTRACE_ATTACH, pid, /*addr=*/nullptr, /*data=*/nullptr) < 0) {
-        std::perror("Could not attach");
-        return -1;
-      }
-    } else {
-      // Parse program name
-      const char* program_path = argv[1];
-
-      if ((pid = fork()) < 0) {
-        // Fork returns 0 inside the child process, anything less is an error
-        std::perror("fork failed");
-        return -1;
-      }
-
-      if (pid == 0) {
-        // we're in the child process
-        if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) < 0) {
-          std::perror("Tracing failed");
-          return -1;
-        }
-
-        // execlp:
-        // 'l' expects arguments individually(varags) as opposed to an array
-        // 'p' means search PATH env var if the supplied path omits '/'
-        if (execlp(program_path, program_path, nullptr) < 0) {
-          std::perror("Exec failed");
-          return -1;
-        }
-      }
-    }
-
-    return pid;
-  }
-
   std::vector<std::string> split(std::string_view str, char delimiter) {
     std::vector<std::string> out{};
     std::stringstream ss {std::string{str}};
@@ -78,32 +33,75 @@ namespace {
     return std::equal(str.begin(), str.end(), of.begin());  
   }
   
-  void resume(pid_t pid) {
-    if (ptrace(PTRACE_CONT, pid, nullptr, nullptr) < 0) {
-      std::cerr << "Couldn't continue\n";
-      std::exit(-1);
-    }  
-  }
-  
-  void wait_on_signal(pid_t pid) {
-    int wait_status;
-    int options = 0;
+  void print_stop_reason(const sdb::process& process, sdb::stop_reason reason) {
+    std::cout << "Process " << process.pid() << ' ';
 
-    if (waitpid(pid, &wait_status, options) < 0) {
-      std::perror("waitpid failed");
-      std::exit(-1);
-    }  
+    switch (reason.reason) {
+    case sdb::process_state::exited:
+        std::cout << "exited with status " << static_cast<int>(reason.info);
+        break;
+    case sdb::process_state::terminated:
+        std::cout << "terminated with signal " << sigabbrev_np(reason.info);
+        break;
+    case sdb::process_state::stopped:
+        std::cout << "stopped with signal " << sigabbrev_np(reason.info);
+        break;
+    }
+
+    std::cout << std::endl;
   }
   
-  void handle_command(pid_t pid, std::string_view line) {
+  void handle_command(std::unique_ptr<sdb::process>& process, std::string_view line) {
     auto args = split(line, ' ');
     auto command = args[0];
 
     if (is_prefix(command, "continue")) {
-      resume(pid);
-      wait_on_signal(pid);
+      process->resume();
+      auto reason = process->wait_on_signal();
+      print_stop_reason(*process, reason);
     } else {
       std::cerr << "Unknown command '" << command << "' \n";
+    }
+  }
+  
+  void main_loop(std::unique_ptr<sdb::process>& process) {
+    char* line = nullptr;
+    while ((line = readline("sdb> ")) != nullptr) {
+      std::string line_str;
+
+      if (line == std::string_view("")) {
+        // Get the last entry from the history if the line is empty and there is history available
+        free(line);
+      
+        if (history_length > 0) {
+          line_str = history_list()[history_length - 1]->line;
+        }
+      } else {
+        line_str = line;
+        add_history(line);
+        free(line);
+      }
+
+      if (!line_str.empty()) {
+        try {
+          handle_command(process, line_str);
+        }
+        catch (const sdb::error& err) {
+          std::cout << err.what() << '\n';
+        }
+      }
+    }
+  }
+
+  std::unique_ptr<sdb::process> attach(int argc, const char** argv) {
+    if (argc == 3 && argv[1] == std::string_view("-p")) {
+      // Passing in the PID
+      pid_t pid = std::atoi(argv[2]);
+      return sdb::process::attach(pid);
+    } else {
+      // Parse program name
+      const char* program_path = argv[1];
+      return sdb::process::launch(program_path);
     }
   }
 }
@@ -114,33 +112,10 @@ int main(int argc, const char** argv) {
     return -1;
   }
 
-  pid_t pid = attach(argc, argv);
-
-  int wait_status;
-  int options = 0;
-  if (waitpid(pid, &wait_status, options) < 0) {
-    std::perror("waitpid failed");
-  }
-
-  char* line = nullptr;
-  while ((line = readline("sdb> ")) != nullptr) {
-    std::string line_str;
-
-    if (line == std::string_view("")) {
-      // Get the last entry from the history if the line is empty and there is history available
-      free(line);
-      
-      if (history_length > 0) {
-        line_str = history_list()[history_length - 1]->line;
-      }
-    } else {
-      line_str = line;
-      add_history(line);
-      free(line);
-    }
-
-    if (!line_str.empty()) {
-      handle_command(pid, line_str);
-    }
+  try {
+    auto process = attach(argc, argv);
+    main_loop(process);
+  } catch (const sdb::error& err) {
+    std::cout<< err.what() << '\n';
   }
 }
