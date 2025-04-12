@@ -43,7 +43,7 @@ sdb::stop_reason sdb::process::wait_on_signal() {
   return reason;
 }
 
-std::unique_ptr<sdb::process> sdb::process::launch(std::filesystem::path path) {
+std::unique_ptr<sdb::process> sdb::process::launch(std::filesystem::path path, bool debug) {
   pipe channel(/*close_on_exec=*/true);
   
   pid_t pid;
@@ -54,7 +54,7 @@ std::unique_ptr<sdb::process> sdb::process::launch(std::filesystem::path path) {
   if (pid == 0)  {
     channel.close_read();
     
-    if (ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) < 0) {
+    if (debug and ptrace(PTRACE_TRACEME, 0, nullptr, nullptr) < 0) {
       exit_with_perror(channel, "tracing failed");
     }
 
@@ -73,8 +73,11 @@ std::unique_ptr<sdb::process> sdb::process::launch(std::filesystem::path path) {
     error::send(std::string(chars, chars + data.size()));
   }
 
-  std::unique_ptr<process> proc (new process(pid, /*terminate_on_end=*/true));
-  proc->wait_on_signal();
+  std::unique_ptr<process> proc (new process(pid, /*terminate_on_end=*/true, debug));
+
+  if (debug) {
+    proc->wait_on_signal();
+  }
 
   return proc;
 }
@@ -88,7 +91,7 @@ std::unique_ptr<sdb::process> sdb::process::attach(pid_t pid) {
       error::send_errno("attach failed");
   }
 
-  std::unique_ptr<process> proc (new process(pid, /*terminate_on_end=*/false));
+  std::unique_ptr<process> proc (new process(pid, /*terminate_on_end=*/false, /*attached=*/true));
   proc->wait_on_signal();
 
   return proc;
@@ -98,15 +101,17 @@ sdb::process::~process() {
   if (pid_ != 0) {
     int status;
 
-    // running inferior processes must be stopped before detaching
-    if (state_ == process_state::running) {
-      kill(pid_, SIGSTOP);
-      waitpid(pid_, &status, 0);
+    if (is_attached_) {
+      // running inferior processes must be stopped before detaching
+      if (state_ == process_state::running) {
+        kill(pid_, SIGSTOP);
+        waitpid(pid_, &status, 0);
+      }
+
+      ptrace(PTRACE_DETACH, pid_, nullptr, nullptr);
+      kill(pid_, SIGCONT);
     }
-
-    ptrace(PTRACE_DETACH, pid_, nullptr, nullptr);
-    kill(pid_, SIGCONT);
-
+    
     if (terminate_on_end_) {
       kill(pid_, SIGKILL);
       waitpid(pid_, &status, 0);
