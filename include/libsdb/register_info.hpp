@@ -17,7 +17,10 @@ namespace sdb {
   };
 
   enum class register_type {
-    gpr, sub_gpr, fpr, dr
+    gpr,     /* general purpose */
+    sub_gpr, /* sub-general purpose. ex: eax is sub of rax */
+    fpr,     /* floating point */
+    dr       /* debug */
   };
 
   enum class register_format {

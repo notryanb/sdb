@@ -134,7 +134,7 @@ void sdb::process::resume() {
 
 void sdb::process::read_all_registers() {
   if (ptrace(PTRACE_GETREGS, pid_, nullptr, &get_registers().data_.regs) < 0) {
-    error::send_errno("Cloud not read GPR registers");
+    error::send_errno("Could not read GPR registers");
   }
 
   if (ptrace(PTRACE_GETREGS, pid_, nullptr, &get_registers().data_.i387) < 0) {

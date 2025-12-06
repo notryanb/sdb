@@ -6,7 +6,7 @@ DEFINE_REGISTER macro defined"
 #define GPR_OFFSET(reg) (offsetof(user, regs) + offsetof(user_regs_struct, reg))
 
 #define DEFINE_GPR_64(name,dwarf_id) \
-  DEFINE_REGISTER(name, dwarf_id, 9, GPR_OFFSET(name),\
+  DEFINE_REGISTER(name, dwarf_id, 8, GPR_OFFSET(name),\
   register_type::gpr, register_format::uint)
 
 #define DEFINE_GPR_32(name,super) \
@@ -118,9 +118,9 @@ DEFINE_FP_ST(4), DEFINE_FP_ST(5), DEFINE_FP_ST(6), DEFINE_FP_ST(7),
 DEFINE_FP_MM(0), DEFINE_FP_MM(1), DEFINE_FP_MM(2), DEFINE_FP_MM(3),
 DEFINE_FP_MM(4), DEFINE_FP_MM(5), DEFINE_FP_MM(6), DEFINE_FP_MM(7),
 
-DEFINE_FP_XMM(0), DEFINE_FP_XMM(1), DEFINE_FP_XMM(2), DEFINE_FP_XMM(3),
-DEFINE_FP_XMM(4), DEFINE_FP_XMM(5), DEFINE_FP_XMM(6), DEFINE_FP_XMM(7),
-DEFINE_FP_XMM(8), DEFINE_FP_XMM(9), DEFINE_FP_XMM(10), DEFINE_FP_XMM(11),
+DEFINE_FP_XMM(0),  DEFINE_FP_XMM(1),  DEFINE_FP_XMM(2),  DEFINE_FP_XMM(3),
+DEFINE_FP_XMM(4),  DEFINE_FP_XMM(5),  DEFINE_FP_XMM(6),  DEFINE_FP_XMM(7),
+DEFINE_FP_XMM(8),  DEFINE_FP_XMM(9),  DEFINE_FP_XMM(10), DEFINE_FP_XMM(11),
 DEFINE_FP_XMM(12), DEFINE_FP_XMM(13), DEFINE_FP_XMM(14), DEFINE_FP_XMM(15),
 
 #define DR_OFFSET(number) (offsetof(user, u_debugreg) + number * 8)
