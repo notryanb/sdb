@@ -2,11 +2,12 @@
 #include <fstream>
 #include <sys/types.h>
 #include <signal.h>
+#include <libsdb/bit.hpp>
+#include <libsdb/pipe.hpp>
 #include <libsdb/process.hpp>
 #include <libsdb/error.hpp>
 
 using namespace sdb;
-
 
 namespace {
   bool process_exists(pid_t pid) {
@@ -22,6 +23,28 @@ namespace {
     auto index_of_status_indicator = index_of_last_parenthesis + 2;
     return data[index_of_status_indicator];
   }
+}
+
+TEST_CASE("Write register works", "[register]") {
+  bool close_on_exec = false;
+  sdb::pipe channel(close_on_exec);
+
+  auto proc = process::launch("targets/reg_write", true, channel.get_write());
+
+  channel.close_write();
+
+  proc->resume();
+  proc->wait_on_signal();
+
+  auto& regs = proc->get_registers();
+  regs.write_by_id(register_id::rsi, 0xcafecafe);
+
+  proc->resume();
+  proc->wait_on_signal();
+
+  auto output  = channel.read();
+
+  REQUIRE(to_string_view(output) == "0xcafecafe");
 }
 
 TEST_CASE("process::launch success", "[process]") {
