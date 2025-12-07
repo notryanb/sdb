@@ -147,7 +147,7 @@ void sdb::process::read_all_registers() {
     error::send_errno("Could not read GPR registers");
   }
 
-  if (ptrace(PTRACE_GETREGS, pid_, nullptr, &get_registers().data_.i387) < 0) {
+  if (ptrace(PTRACE_GETFPREGS, pid_, nullptr, &get_registers().data_.i387) < 0) {
     error::send_errno("Could not read FPR registers");
   }
 
