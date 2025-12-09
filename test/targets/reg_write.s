@@ -1,8 +1,9 @@
 .global main
 
 .section .data
-        hex_format:   .asciz "%#x" # encode the string into ascii with a null terminator
-        float_format: .asciz "%.2f"
+        hex_format:        .asciz "%#x" # encode the string into ascii with a null terminator
+        float_format:      .asciz "%.2f"
+        long_float_format: .asciz "%.2Lf"
 
 .section .text
 .macro trap
@@ -46,6 +47,19 @@ main:
         call printf@plt
         movq $0, %rdi
         call fflush@plt
+        trap
+
+        # Print contents of st0
+        # x87 instructions operate  on a stack of values st0..st7.
+        # We treat this as a separate FPU stack
+        subq $16, %rsp # allocate 16 bytes on the stack by growing it downwards from rsp
+        fstpt (%rsp)   # pop st0 off the FPU stack
+        leaq long_float_format(%rip), %rdi
+        movq $0, %rax
+        call printf@plt
+        movq $0, %rdi
+        call fflush@plt
+        addq $16, %rsp # clean up the stack space by going 16 bytes back up
         trap
 
         # Function Epilogue: cleanup

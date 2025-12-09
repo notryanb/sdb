@@ -54,7 +54,18 @@ TEST_CASE("Write register works", "[register]") {
   proc->resume();
   proc->wait_on_signal();
   output = channel.read();
+  REQUIRE(to_string_view(output) == "42.24");
 
+  regs.write_by_id(register_id::st0, 42.24l);
+  // The status word(16 bits wide) tracks the current size of the FPU stack
+  // set bites 11..13 to 0b111
+  regs.write_by_id(register_id::fsw, std::uint16_t{0b0011100000000000});
+  // The 16 bit tag register tracks which 'st' register are valid.
+  // 0b11 means empty and 0b00 means valid
+  regs.write_by_id(register_id::ftw, std::uint16_t{0b0011111111111111});
+  proc->resume();
+  proc->wait_on_signal();
+  output = channel.read();
   REQUIRE(to_string_view(output) == "42.24");
 }
 
