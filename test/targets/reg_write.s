@@ -1,7 +1,8 @@
 .global main
 
 .section .data
- hex_format: .asciz "%#x" # encode the string into ascii with a null terminator
+        hex_format:   .asciz "%#x" # encode the string into ascii with a null terminator
+        float_format: .asciz "%.2f"
 
 .section .text
 .macro trap
@@ -20,7 +21,6 @@ main:
         movq $39, %rax # getpid is syscall id 39
         syscall # the syscall will store the result into rax
         movq %rax, %r12 # move the result from the getpid syscall into another register.
-
         trap
 
         # Print contents of rsi
@@ -29,7 +29,6 @@ main:
         call printf@plt #call printf with the procedural linkage table, which calls functions in shared libraries
         movq $0, %rdi 
         call fflush@plt # call fflush with 0 as the argument in rdi so it flushes all streams
-
         trap
 
         # Print contents of mm0
@@ -39,7 +38,14 @@ main:
         call printf@plt
         movq $0, %rdi
         call fflush@plt
+        trap
 
+        # Print contents of xmm0
+        leaq float_format(%rip), %rdi
+        movq $1, %rax
+        call printf@plt
+        movq $0, %rdi
+        call fflush@plt
         trap
 
         # Function Epilogue: cleanup
