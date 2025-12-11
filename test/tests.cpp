@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <fstream>
+#include <memory>
 #include <sys/types.h>
 #include <signal.h>
 #include <libsdb/bit.hpp>
@@ -23,6 +24,31 @@ namespace {
     auto index_of_status_indicator = index_of_last_parenthesis + 2;
     return data[index_of_status_indicator];
   }
+}
+
+TEST_CASE("Read register works", "[register]") {
+  auto proc = process::launch("targets/reg_read");
+  auto& regs = proc->get_registers();
+
+  proc->resume();
+  proc->wait_on_signal();
+  REQUIRE(regs.read_by_id_as<std::uint64_t>(register_id::r13) == 0xcafecafe);
+
+  proc->resume();
+  proc->wait_on_signal();
+  REQUIRE(regs.read_by_id_as<std::uint8_t>(register_id::r13b) == 42);
+
+  proc->resume();
+  proc->wait_on_signal();
+  REQUIRE(regs.read_by_id_as<byte64>(register_id::mm0) == to_byte64(0xba5eba11ull));
+
+  proc->resume();
+  proc->wait_on_signal();
+  REQUIRE(regs.read_by_id_as<byte128>(register_id::xmm0) == to_byte128(64.125));
+
+  proc->resume();
+  proc->wait_on_signal();
+  REQUIRE(regs.read_by_id_as<long double>(register_id::st0) == 64.125L);
 }
 
 TEST_CASE("Write register works", "[register]") {
