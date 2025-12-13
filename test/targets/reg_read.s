@@ -35,7 +35,7 @@ main:
         trap
         
         # Store to xmm0
-        movsd my_double(%rip), %xmm0
+        movsd my_double(%rip), %xmm0 # Move Scalar double precision floating point value
         trap
 
         # Store to st0
