@@ -5,7 +5,10 @@
 #include <memory>
 #include <sys/types.h>
 #include <optional>
+#include <vector>
 #include <libsdb/registers.hpp>
+#include <libsdb/breakpoint_site.hpp>
+#include <libsdb/stoppoint_collection.hpp>
 
 namespace sdb {
   enum class process_state {
@@ -57,6 +60,10 @@ namespace sdb {
             get_registers().read_by_id_as<std::uint64_t>(register_id::rip)
           };
         }
+
+        breakpoint_site& create_breakpoint_site(virt_addr address);
+        stoppoint_collection<breakpoint_site>& breakpoint_sites() { return breakpoint_sites_; }
+        const stoppoint_collection<breakpoint_site>& breakpoint_sites() const { return breakpoint_sites_; }
         
     private:
       process(pid_t pid, bool terminate_on_end, bool is_attached) 
@@ -73,6 +80,8 @@ namespace sdb {
       void read_all_registers();
 
       std::unique_ptr<registers> registers_;
+      std::vector<std::unique::ptr<breakpoint_site>> breakpoint_sites_;
+      stoppoint_collection<breakpoint_site> breakpoint_sites_;
   };
 }
 

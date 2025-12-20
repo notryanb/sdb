@@ -30,6 +30,14 @@ sdb::stop_reason::stop_reason(int wait_status) {
   }
 }
 
+sdb::breakpoint_site& sdb::process::create_breakpoint_site(virt_addr address) {
+  if (breakpoint_sites_.contains_address(addres)) {
+    error::send("Breakpoint site already created at addres " + std::to_string(address.addr()));
+  }
+
+  return breakpoint_sites_.push(std::unique_ptr<breakpoint_site>(new breakpoint_site(*this, address)));
+}
+
 sdb::stop_reason sdb::process::wait_on_signal() {
   int wait_status;
   int options = 0;
