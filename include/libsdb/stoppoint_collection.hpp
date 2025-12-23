@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <vector>
 #include <memory>
+#include <libsdb/error.hpp>
 #include <libsdb/types.hpp>
 
 namespace sdb {
@@ -14,7 +15,7 @@ namespace sdb {
 
       bool contains_id(typename Stoppoint::id_type id) const;
       bool contains_address(virt_addr address) const;
-      bool enabled_stoppoint_at_address(virt_address address) const;
+      bool enabled_stoppoint_at_address(virt_addr address) const;
 
       Stoppoint& get_by_id(typename Stoppoint::id_type id);
       const Stoppoint& get_by_id(typename Stoppoint::id_type id) const;
@@ -26,7 +27,7 @@ namespace sdb {
 
       template <class F>
       void for_each(F f);
-      template <class F>;
+      template <class F>
       void for_each(F f) const;
 
       std::size_t size() const { return stoppoints_.size(); }
@@ -38,7 +39,7 @@ namespace sdb {
       typename points_t::iterator find_by_id(typename Stoppoint::id_type id);
       typename points_t::const_iterator find_by_id(typename Stoppoint::id_type id) const;
       typename points_t::iterator find_by_address(virt_addr address);
-      typename points_t::conts_iterator find_by_addres(virt_addr address) const;
+      typename points_t::const_iterator find_by_address(virt_addr address) const;
       
       points_t stoppoints_;
   };
@@ -80,7 +81,81 @@ namespace sdb {
     -> typename points_t::const_iterator {
       return const_cast<stoppoint_collection*>(this)->find_by_address(address);
   }
+
+  template <class Stoppoint>
+  bool stoppoint_collection<Stoppoint>::contains_id(typename Stoppoint::id_type id) const {
+    return find_by_id(id) != end(stoppoints_);
+  }
+
+  template <class Stoppoint>
+  bool stoppoint_collection<Stoppoint>::contains_address(virt_addr address) const {
+    return find_by_address(address) != end(stoppoints_);
+  }
   
+  template <class Stoppoint>
+  bool stoppoint_collection<Stoppoint>::enabled_stoppoint_at_address(virt_addr address) const {
+    return contains_address(address) and get_by_address(address).is_enabled();
+  }
+
+  template <class Stoppoint>
+  Stoppoint& stoppoint_collection<Stoppoint>::get_by_id(typename Stoppoint::id_type id) {
+    auto it = find_by_id(id);
+    if (it == end(stoppoints_)) {
+      error::send("Invalid stoppoint id");
+    }
+    // Have to deref the iterator twice because we need to go through the iterator and then the unique_ptr
+    return **it;
+  }
+
+  template <class Stoppoint>
+  const Stoppoint& stoppoint_collection<Stoppoint>::get_by_id(typename Stoppoint::id_type id) const {
+    return const_cast<stoppoint_collection*>(this)->get_by_id(id);
+  }
+
+  template <class Stoppoint>
+  Stoppoint& stoppoint_collection<Stoppoint>::get_by_address(virt_addr address) {
+    auto it = find_by_address(address);
+    if (it == end(stoppoints_)) {
+      error::send("Stoppoint with given address is not found");
+    }
+    // Have to deref the iterator twice because we need to go through the iterator and then the unique_ptr
+    return **it;
+  }
+
+  template <class Stoppoint>
+  const Stoppoint& stoppoint_collection<Stoppoint>::get_by_address(virt_addr address) const {
+    return const_cast<stoppoint_collection*>(this)->get_by_address(address);
+  }
+  
+  template <class Stoppoint>
+  void stoppoint_collection<Stoppoint>::remove_by_id(typename Stoppoint::id_type id) {
+    auto it = find_by_id(id);
+    (**it).disable();
+    stoppoints_.erase(it);
+  }
+
+  template <class Stoppoint>
+  void stoppoint_collection<Stoppoint>::remove_by_address(virt_addr address) {
+    auto it = find_by_address(address);
+    (**it).disable();
+    stoppoints_.erase(it);
+  }
+
+  template <class Stoppoint>
+  template <class F>
+  void stoppoint_collection<Stoppoint>::for_each(F f) {
+    for (auto& point : stoppoints_) {
+      f(*point);
+    }
+  }
+
+  template <class Stoppoint>
+  template <class F>
+  void stoppoint_collection<Stoppoint>::for_each(F f) const {
+    for (const auto& point : stoppoints_) {
+      f(*point);
+    }
+  }
 }
 
 #endif

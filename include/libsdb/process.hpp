@@ -80,7 +80,6 @@ namespace sdb {
       void read_all_registers();
 
       std::unique_ptr<registers> registers_;
-      std::vector<std::unique::ptr<breakpoint_site>> breakpoint_sites_;
       stoppoint_collection<breakpoint_site> breakpoint_sites_;
   };
 }

@@ -26,6 +26,27 @@ namespace {
   }
 }
 
+TEST_CASE("Can create breakpoint site", "[breakpoint]") {
+  auto proc = process::launch("targets/run_endlessly");
+  auto& site = proc->create_breakpoint_site(virt_addr { 42 });
+  REQUIRE(site.address().addr() == 42);
+}
+
+TEST_CASE("Breakpoint site ids increase", "[breakpoint]") {
+  auto proc = process::launch("targets/run_endlessly");
+  auto& s1 = proc->create_breakpoint_site(virt_addr { 42 });
+  REQUIRE(s1.address().addr() == 42);
+
+  auto& s2 = proc->create_breakpoint_site(virt_addr { 43 });
+  REQUIRE(s2.id() == s1.id() + 1);
+
+  auto& s3 = proc->create_breakpoint_site(virt_addr { 44 });
+  REQUIRE(s3.id() == s1.id() + 2);
+  
+  auto& s4 = proc->create_breakpoint_site(virt_addr { 45 });
+  REQUIRE(s4.id() == s1.id() + 3);
+}
+
 TEST_CASE("Read register works", "[register]") {
   auto proc = process::launch("targets/reg_read");
   auto& regs = proc->get_registers();
