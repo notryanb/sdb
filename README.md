@@ -8,6 +8,7 @@ Note: This project is linux only
 - `cmake --build build` => Builds executables when inside the project root dir
 - `./tools/sdb` to run the exe (yes, from inside `./build`)
 - `./tests` to run the test suite from inside `./build/tests`
+- From the root dir, `cmake --build build && cd build/test && ./tests && cd ../..` to more easily run everything from root
 
 ## Usage
 - TODO: Fill out once it is ready
