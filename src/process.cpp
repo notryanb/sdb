@@ -2,6 +2,7 @@
 #include <libsdb/process.hpp>
 #include <libsdb/pipe.hpp>
 
+#include <sys/personality.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -69,6 +70,7 @@ std::unique_ptr<sdb::process> sdb::process::launch(
   }
 
   if (pid == 0)  {
+    personality(ADDR_NO_RANDOMIZE);
     channel.close_read();
 
     if (stdout_replacement) {

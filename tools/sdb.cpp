@@ -286,8 +286,10 @@ namespace {
       return sdb::process::attach(pid);
     } else {
       // Parse program name
-      const char* program_path = argv[1];
-      return sdb::process::launch(program_path);
+      auto program_path = argv[1];
+      auto proc = sdb::process::launch(program_path);
+      fmt::print("Launched process with PID: {}\n", proc->pid());
+      return proc;
     }
   }
 }
