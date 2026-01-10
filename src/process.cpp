@@ -31,6 +31,29 @@ sdb::stop_reason::stop_reason(int wait_status) {
   }
 }
 
+sdb::stop_reason sdb::process::step_instruction() {
+  std::optional<breakpoint_site*> to_reenable;
+  auto pc = get_pc();
+
+  if (breakpoint_sites_.enabled_stoppoint_at_address(pc)) {
+    auto& bp = breakpoint_sites_.get_by_address(pc);
+    bp.disable();
+    to_reenable = &bp;
+  }
+
+  if (ptrace(PTRACE_SINGLESTEP, pid_, nullptr, nullptr) < 0) {
+    error::send_errno("Could not single step");
+  }
+
+  auto reason = wait_on_signal();
+
+  if (to_reenable) {
+    to_reenable.value()->enable();
+  }
+
+  return reason;
+}
+
 sdb::breakpoint_site& sdb::process::create_breakpoint_site(virt_addr address) {
   if (breakpoint_sites_.contains_address(address)) {
     error::send("Breakpoint site already created at addres " + std::to_string(address.addr()));

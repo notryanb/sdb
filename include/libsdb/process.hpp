@@ -68,6 +68,8 @@ namespace sdb {
         breakpoint_site& create_breakpoint_site(virt_addr address);
         stoppoint_collection<breakpoint_site>& breakpoint_sites() { return breakpoint_sites_; }
         const stoppoint_collection<breakpoint_site>& breakpoint_sites() const { return breakpoint_sites_; }
+
+        sdb::stop_reason step_instruction();
         
     private:
       process(pid_t pid, bool terminate_on_end, bool is_attached) 

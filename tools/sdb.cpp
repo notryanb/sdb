@@ -245,6 +245,9 @@ namespace {
       handle_register_command(*process, args);
     } else if (is_prefix(command, "breakpoint")) {
         handle_breakpoint_command(*process, args);
+    } else if (is_prefix(command, "step")) {
+        auto reason = process->step_instruction();
+        print_stop_reason(*process, reason);      
     } else {
       std::cerr << "Unknown command '" << command << "' \n";
     }
