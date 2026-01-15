@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <optional>
 #include <vector>
+#include <libsdb/bit.hpp>
 #include <libsdb/registers.hpp>
 #include <libsdb/breakpoint_site.hpp>
 #include <libsdb/stoppoint_collection.hpp>
@@ -70,6 +71,15 @@ namespace sdb {
         const stoppoint_collection<breakpoint_site>& breakpoint_sites() const { return breakpoint_sites_; }
 
         sdb::stop_reason step_instruction();
+
+        std::vector<std::byte> read_memory(virt_addr address, std::size_t amount) const;
+        void write_memory(virt_addr address, span<const std::byte> data);
+
+        template <class T>
+        T read_memory_as(virt_addr address) const {
+          auto data = read_memory(address, sizeof(T));
+          return from_bytes<T>(data.data());
+        }
         
     private:
       process(pid_t pid, bool terminate_on_end, bool is_attached) 
