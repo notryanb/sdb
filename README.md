@@ -12,3 +12,8 @@ Note: This project is linux only
 
 ## Usage
 - TODO: Fill out once it is ready
+- When manually testing with `hello_sdb`, the entry address useful for testing a breakpoint is `0x555555555147`
+
+- `objdump -d .../hello_sdb` to get main and the syscall
+- `cat /proc/<pid>/maps` to get memory space.
+- <main syscall address> + memory space start - 0x1000 (size of space) to get the entry breakpoint
