@@ -43,6 +43,7 @@ namespace {
     disable <id>
     enable <id>
     set <address>
+    set <address> -h
 )";
     } else if (is_prefix(args[1], "register")) {
       std::cerr << R"(Available Commands:
@@ -292,6 +293,8 @@ namespace {
         process
           .breakpoint_sites()
           .for_each([](auto& site) {
+            if (site.is_internal()) return;
+
             fmt::print(
                "{}: addres = {:#x}, {}\n",
                site.id(),
@@ -316,7 +319,13 @@ namespace {
         fmt::print(stderr, "Breakpoint command expects address in hexadecimal, prefixed with '0x'\n");
       }
 
-      process.create_breakpoint_site(sdb::virt_addr{ *address }).enable();
+      bool hardware = false;
+      if (args.size() == 4) {
+        if (args[3] == "-h") hardware = true;
+        else sdb::error::send("Invalid breakpoint command argument");
+      }
+
+      process.create_breakpoint_site(sdb::virt_addr{ *address }, hardware).enable();
       return;
     }
 

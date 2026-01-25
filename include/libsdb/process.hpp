@@ -66,7 +66,7 @@ namespace sdb {
           get_registers().write_by_id(register_id::rip, address.addr());
         }
 
-        breakpoint_site& create_breakpoint_site(virt_addr address);
+        breakpoint_site& create_breakpoint_site(virt_addr address, bool hardware = false, bool internal = false);
         stoppoint_collection<breakpoint_site>& breakpoint_sites() { return breakpoint_sites_; }
         const stoppoint_collection<breakpoint_site>& breakpoint_sites() const { return breakpoint_sites_; }
 
@@ -75,6 +75,9 @@ namespace sdb {
         std::vector<std::byte> read_memory(virt_addr address, std::size_t amount) const;
         std::vector<std::byte> read_memory_without_traps(virt_addr address, std::size_t amount) const;
         void write_memory(virt_addr address, span<const std::byte> data);
+
+        int set_hardware_breakpoint(breakpoint_site::id_type id, virt_addr address);
+        void clear_hardware_stoppoint(int index);
 
         template <class T>
         T read_memory_as(virt_addr address) const {
@@ -95,6 +98,7 @@ namespace sdb {
       bool is_attached_ = true;
       process_state state_ = process_state::stopped;
       void read_all_registers();
+      int set_hardware_stoppoint(virt_addr address, stoppoint_mode mode, std::size_t size);
 
       std::unique_ptr<registers> registers_;
       stoppoint_collection<breakpoint_site> breakpoint_sites_;

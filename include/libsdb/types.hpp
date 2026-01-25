@@ -81,6 +81,10 @@ namespace sdb {
     private:
       std::uint64_t addr_ = 0;
   };
+
+  enum class stoppoint_mode {
+    write, read_write, execute
+  };
 }
 
 #endif 
