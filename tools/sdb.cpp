@@ -296,7 +296,7 @@ namespace {
             if (site.is_internal()) return;
 
             fmt::print(
-               "{}: addres = {:#x}, {}\n",
+               "{}: address = {:#x}, {}\n",
                site.id(),
                site.address().addr(),
                site.is_enabled() ? "enabled" : "disabled"
