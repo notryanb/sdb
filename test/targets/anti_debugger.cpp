@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <numeric>
+#include <signal.h>
 #include <unistd.h>
 
 void an_innocent_function() {
@@ -18,12 +19,19 @@ int checksum() {
 int main() {
   auto safe = checksum();
 
+  auto ptr = reinterpret_cast<void*>(&an_innocent_function);
+  write(STDOUT_FILENO, &ptr, sizeof(void*));
+  fflush(stdout);
+  raise(SIGTRAP);
+
   while (true) {
-    sleep(1);
     if (checksum() == safe) {
       an_innocent_function();
     } else {
       puts ("Putting pepperoni on pizza...");
     }
+
+    fflush(stdout);
+    raise(SIGTRAP);
   }
 }
