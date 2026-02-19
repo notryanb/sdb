@@ -19,6 +19,12 @@
 #include <libsdb/parse.hpp>
 
 namespace {
+  sdb::process* g_sdb_process = nullptr;
+
+  void handle_sigint(int) {
+    kill(g_sdb_process->pid(), SIGSTOP);
+  }
+  
   bool is_prefix(std::string_view str, std::string_view of) {
     if (str.size() > of.size()) return false;
 
@@ -522,6 +528,8 @@ int main(int argc, const char** argv) {
 
   try {
     auto process = attach(argc, argv);
+    g_sdb_process = process.get();
+    signal(SIGINT, handle_sigint);
     main_loop(process);
   } catch (const sdb::error& err) {
     std::cout<< err.what() << '\n';

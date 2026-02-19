@@ -20,12 +20,20 @@ namespace sdb {
     terminated,
   };
 
+  enum class trap_type {
+    single_step,
+    software_break,
+    hardware_break,
+    unknown, 
+  };
+
   struct stop_reason {
     // Constructor
     stop_reason(int wait_status);
 
     process_state reason;
     std::uint8_t info;
+    std::optional<trap_type> trap_reason;
   };
   
   class process {
@@ -80,6 +88,7 @@ namespace sdb {
         int set_hardware_breakpoint(breakpoint_site::id_type id, virt_addr address);
         void clear_hardware_stoppoint(int index);
 
+
         template <class T>
         T read_memory_as(virt_addr address) const {
           auto data = read_memory(address, sizeof(T));
@@ -90,6 +99,9 @@ namespace sdb {
         watchpoint& create_watchpoint(virt_addr address, stoppoint_mode mode, std::size_t size);
         stoppoint_collection<watchpoint>& watchpoints() { return watchpoints_; }
         const stoppoint_collection<watchpoint>& watchpoints() const { return watchpoints_; }
+
+        void augment_stop_reason(stop_reason& reason);
+        std::variant<breakpoint_site::id_type, watchpoint::id_type> get_current_hardware_stoppoint() const;
         
     private:
       process(pid_t pid, bool terminate_on_end, bool is_attached) 
