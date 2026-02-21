@@ -33,6 +33,11 @@ namespace sdb {
       bool in_range(virt_addr low, virt_addr high) const {
         return low <= address_ and high > address_;
       }
+
+      std::uint64_t data() const { return data_; }
+      std::uint64_t previous_data() const { return previous_data_; }
+
+      void update_data();
       
     private:
       friend process;
@@ -45,6 +50,8 @@ namespace sdb {
       std::size_t size_;
       bool is_enabled_;
       int hardware_register_index_ = -1;
+      std::uint64_t data_ = 0;
+      std::uint64_t previous_data_ = 0;
   };
 }
 
