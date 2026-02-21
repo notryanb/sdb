@@ -113,7 +113,7 @@ namespace {
       return " (single step)";
     }
 
-    return "";
+    return " ??? ";
   }
 
   void print_stop_reason(const sdb::process& process, sdb::stop_reason reason) {
@@ -127,10 +127,16 @@ namespace {
         message = fmt::format("terminated with signal {}", sigabbrev_np(reason.info));
         break;
     case sdb::process_state::stopped:
-        message = fmt::format("stopped with signal {} at {:#x}", sigabbrev_np(reason.info), process.get_pc().addr());
+        message = fmt::format(
+          "stopped with signal {} at {:#x}",
+          sigabbrev_np(reason.info),
+          process.get_pc().addr()
+        );
+
         if (reason.info == SIGTRAP) {
           message += get_sigtrap_info(process, reason);
         }
+        
         break;
     }
 
@@ -366,14 +372,14 @@ namespace {
     auto mode_text = args[3];
     auto size = sdb::to_integral<std::size_t>(args[4]);
 
-    if (!address or !size or mode_text == "rw" or mode_text == "execute") {
+    if (!address or !size or !(mode_text == "write" or mode_text == "rw" or mode_text == "execute")) {
       print_help({ "help", "watchpoint" });
       return;
     }
 
     sdb::stoppoint_mode mode;
     if (mode_text == "write") mode = sdb::stoppoint_mode::write;
-    else if (mode_text == "read_write") mode = sdb::stoppoint_mode::read_write;
+    else if (mode_text == "rw") mode = sdb::stoppoint_mode::read_write;
     else if (mode_text == "execute") mode = sdb::stoppoint_mode::execute;
 
     process.create_watchpoint(sdb::virt_addr{ *address }, mode, *size).enable();

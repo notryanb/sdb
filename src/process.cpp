@@ -17,7 +17,7 @@ namespace {
       case sdb::stoppoint_mode::write: return 0b01; 
       case sdb::stoppoint_mode::read_write: return 0b11; 
       case sdb::stoppoint_mode::execute: return 0b00;
-      default: sdb::error::send("Invalid stoppoint mode");
+      default: sdb::error::send("Can't encode hardware invalid stoppoint mode");
     }
   }
 
@@ -230,6 +230,7 @@ sdb::stop_reason sdb::process::wait_on_signal() {
     // If we're at a breakpoint, in order to continue,
     // move the PC back one so it continues on a valid address
     auto instr_begin = get_pc() - 1;
+
     if (reason.info == SIGTRAP) {
      if (reason.trap_reason == trap_type::software_break and
          breakpoint_sites_.contains_address(instr_begin) and
@@ -409,6 +410,7 @@ void sdb::process::augment_stop_reason(stop_reason& reason) {
   }
 
   reason.trap_reason = trap_type::unknown;
+
   if (reason.info == SIGTRAP) {
     switch (info.si_code) {
       case TRAP_TRACE:
