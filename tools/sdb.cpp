@@ -17,6 +17,7 @@
 #include <libsdb/process.hpp>
 #include <libsdb/error.hpp>
 #include <libsdb/parse.hpp>
+#include <libsdb/syscalls.hpp>
 
 namespace {
   sdb::process* g_sdb_process = nullptr;
@@ -41,7 +42,7 @@ namespace {
     register    - Commands for operating on registers
     step        - Step over a single instruction
     watchpoint  - Commands for operating on watchpoints
-
+    catchpoint  - Commands for operating on catchpoints
 )";
     } else if (is_prefix(args[1], "breakpoint")) {
       std::cerr << R"(Available Commands:
@@ -78,6 +79,13 @@ namespace {
     enable <id>
     set <address> <write|rw|execute> <size>
 )";
+    } else if (is_prefix(args[1], "catchpoint")) {
+      std::cerr << R"(Available Commands:
+    syscall
+    syscall none
+    syscall <list of syscall IDs or names>
+    set <address> <write|rw|execute> <size>
+)";
     } else {
       std::cerr << "No help available on that\n";      
     }
@@ -111,6 +119,25 @@ namespace {
 
     if (reason.trap_reason == sdb::trap_type::single_step) {
       return " (single step)";
+    }
+
+    if (reason.trap_reason == sdb::trap_type::syscall) {
+      const auto& info = *reason.syscall_info;
+      std::string message = " ";
+
+      if (info.entry) {
+        message += "(syscall entry)\n";
+        message += fmt::format(
+          "syscall: {}({:#x})",
+          sdb::syscall_id_to_name(info.id),
+          fmt::join(info.args, ",")
+        );
+      } else {
+        message += "(syscall exit)\n";
+        message += fmt::format("syscall returned: {:#x}", info.ret);
+      }
+
+      return message;
     }
 
     return " ??? ";
@@ -452,6 +479,29 @@ namespace {
     }
   }
 
+  void handle_syscall_catchpoint_command(sdb::process& process, const std::vector<std::string>& args) {
+    sdb::syscall_catch_policy policy = sdb::syscall_catch_policy::catch_all();
+
+    if (args.size() == 3 and args[2] == "none") {
+      policy = sdb::syscall_catch_policy::catch_none();
+    } else if (args.size() >= 3) {
+      auto syscalls = split(args[2], ',');
+      std::vector<int> to_catch;
+
+      std::transform(
+        begin(syscalls),
+        end(syscalls),
+        std::back_inserter(to_catch),
+        [](auto& syscall) {
+          return isdigit(syscall[0]) ? sdb::to_integral<int>(syscall).value() : sdb::syscall_name_to_id(syscall);
+      });
+
+      policy = sdb::syscall_catch_policy::catch_some(std::move(to_catch));
+    }
+
+    process.set_syscall_catch_policy(std::move(policy));
+  }
+
   void handle_watchpoint_command(sdb::process& process, const std::vector<std::string>& args) {
     if (args.size() < 2) {
       print_help({ "help", "watchpoint" });
@@ -489,6 +539,17 @@ namespace {
       process.watchpoints().remove_by_id(*id);
     }
   }
+
+  void handle_catchpoint_command(sdb::process& process, const std::vector<std::string>& args) {
+    if (args.size() < 2) {
+      print_help({ "help", "catchpoint" });
+      return;
+    }
+
+    if (is_prefix(args[1], "syscall")) {
+      handle_syscall_catchpoint_command(process, args);
+    }
+  }
   
   void handle_command(std::unique_ptr<sdb::process>& process, std::string_view line) {
     auto args = split(line, ' ');
@@ -513,6 +574,8 @@ namespace {
       handle_disassemble_command(*process, args);
     } else if (is_prefix(command, "watchpoint")) {
       handle_watchpoint_command(*process, args);      
+    } else if (is_prefix(command, "catchpoint")) {
+      handle_catchpoint_command(*process, args);      
     } else {
       std::cerr << "Unknown command '" << command << "' \n";
     }

@@ -9,6 +9,7 @@
 #include <libsdb/pipe.hpp>
 #include <libsdb/process.hpp>
 #include <libsdb/error.hpp>
+#include <libsdb/syscalls.hpp>
 
 using namespace sdb;
 
@@ -82,6 +83,13 @@ namespace {
     auto index_of_status_indicator = index_of_last_parenthesis + 2;
     return data[index_of_status_indicator];
   }
+}
+
+TEST_CASE("Syscall mapping works", "[syscall]") {
+  REQUIRE(sdb::syscall_id_to_name(0) == "read");
+  REQUIRE(sdb::syscall_name_to_id("read") == 0);
+  REQUIRE(sdb::syscall_id_to_name(62) == "kill");
+  REQUIRE(sdb::syscall_name_to_id("kill") == 62);
 }
 
 TEST_CASE("Breakpoint on address works", "[breakpoint]") {
