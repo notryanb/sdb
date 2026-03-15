@@ -12,6 +12,12 @@
 #include <unistd.h>
 
 namespace {
+  void exit_with_perror(sdb::pipe& channel, std::string const& prefix) {
+    auto message = prefix + ": " + std::strerror(errno);
+    channel.write(reinterpret_cast<std::byte*>(message.data()), message.size());
+    exit(-1);
+  }
+
   void set_ptrace_options(pid_t pid) {
     if (ptrace(PTRACE_SETOPTIONS, pid, nullptr, PTRACE_O_TRACESYSGOOD) < 0) {
       sdb::error::send_errno("Failed to set TRACESYSGOOD options");
@@ -45,13 +51,6 @@ namespace {
     }
 
     sdb::error::send("No remaining hardware debug registers");
-  }
-
-  
-  void exit_with_perror(sdb::pipe& channel, std::string const& prefix) {
-    auto message = prefix + ": " + std::strerror(errno);
-    channel.write(reinterpret_cast<std::byte*>(message.data()), message.size());
-    exit(-1);
   }
 }
 
