@@ -440,7 +440,8 @@ void sdb::process::augment_stop_reason(stop_reason& reason) {
 
     if (expecting_syscall_exit_) {
       sys_info.entry = false;
-      sys_info.id = regs.read_by_id_as<std::uint64_t>(register_id::rax);
+      sys_info.id = regs.read_by_id_as<std::uint64_t>(register_id::orig_rax);
+      sys_info.ret = regs.read_by_id_as<std::uint64_t>(register_id::rax);
       expecting_syscall_exit_ = false;
     } else {
       sys_info.entry = true;

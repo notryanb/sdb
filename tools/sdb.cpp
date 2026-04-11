@@ -140,7 +140,7 @@ namespace {
       return message;
     }
 
-    return " ??? ";
+    return "";
   }
 
   void print_stop_reason(const sdb::process& process, sdb::stop_reason reason) {
@@ -452,6 +452,7 @@ namespace {
 
       if (!address) {
         fmt::print(stderr, "Breakpoint command expects address in hexadecimal, prefixed with '0x'\n");
+        return;
       }
 
       bool hardware = false;
