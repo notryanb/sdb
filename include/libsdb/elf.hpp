@@ -3,6 +3,12 @@
 
 #include <filesystem>
 #include <elf.h>
+#include <optional>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+#include <libsdb/types.hpp>
+
 
 namespace sdb {
   class elf {
@@ -16,12 +22,22 @@ namespace sdb {
       std::filesystem::path path() const { return path_; }
       const Elf64_Ehdr& get_header() const { return header_; }
 
+      std::string_view get_section_name(std::size_t index) const;
+
+      std::optional<const Elf64_Shdr*> get_section(std::string_view name) const;
+      span<const std::byte> get_section_contents(std::string_view name) const;
+
     private:
+      void build_section_map();
+      void parse_section_headers();
+      
       int fd_;
       std::filesystem::path path_;
       std::size_t file_size_;
       std::byte* data_;
       Elf64_Ehdr header_;
+      std::vector<Elf64_Shdr> section_headers_;
+      std::unordered_map<std::string_view, Elf64_Shdr*> section_map_;
   };
 }
 
