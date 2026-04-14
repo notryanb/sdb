@@ -23,9 +23,16 @@ namespace sdb {
       const Elf64_Ehdr& get_header() const { return header_; }
 
       std::string_view get_section_name(std::size_t index) const;
+      std::string_view get_string(std::size_t index) const;
 
       std::optional<const Elf64_Shdr*> get_section(std::string_view name) const;
       span<const std::byte> get_section_contents(std::string_view name) const;
+      const Elf64_Shdr* get_section_containing_address(file_addr addr) const;
+      const Elf64_Shdr* get_section_containing_address(virt_addr addr) const;
+
+      virt_addr load_bias() const { return load_bias_; }
+      void notify_loaded(virt_addr address) { load_bias_ = address; }
+
 
     private:
       void build_section_map();
@@ -38,6 +45,7 @@ namespace sdb {
       Elf64_Ehdr header_;
       std::vector<Elf64_Shdr> section_headers_;
       std::unordered_map<std::string_view, Elf64_Shdr*> section_map_;
+      virt_addr load_bias_;
   };
 }
 

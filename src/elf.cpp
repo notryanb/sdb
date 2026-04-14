@@ -63,6 +63,43 @@ sdb::span<const std::byte> sdb::elf::get_section_contents(std::string_view name)
   return { nullptr, std::size_t(0) };
 }
 
+std::string_view sdb::elf::get_string(std::size_t index) const {
+  auto opt_strtab = get_section(".strtab");
+
+  if (!opt_strtab) {
+    opt_strtab = get_section(".dynstr");
+    if (!opt_strtab) return "";
+  }
+
+  return {
+    reinterpret_cast<char*>(data_) + opt_strtab.value()->sh_offset + index
+  };
+}
+
+const Elf64_Shdr* sdb::elf::get_section_containing_address(file_addr addr) const {
+  if (addr.elf_file() != this) return nullptr;
+
+  for (auto& section : section_headers_) {
+    if (section.sh_addr <= addr.addr() and
+        section.sh_addr + section.sh_size > addr.addr()) {
+      return &section;
+    }
+  }
+
+  return nullptr;
+}
+
+const Elf64_Shdr* sdb::elf::get_section_containing_address(virt_addr addr) const {
+  for (auto& section : section_headers_) {
+    if (load_bias_ + section.sh_addr <= addr and
+        load_bias_ + section.sh_addr + section.sh_size > addr) {
+      return &section;
+    }
+  }
+
+  return nullptr;
+}
+
 /* private methods  */
 void sdb::elf::build_section_map() {
   for (auto& section : section_headers_) {
