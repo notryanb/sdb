@@ -35,6 +35,7 @@ sdb::elf::elf(const std::filesystem::path& path) {
 
   parse_section_headers();
   build_section_map();
+  parse_symbol_table();
 }
 
 sdb::elf::~elf() {
@@ -100,6 +101,15 @@ const Elf64_Shdr* sdb::elf::get_section_containing_address(virt_addr addr) const
   return nullptr;
 }
 
+std::optional<sdb::file_addr> sdb::elf::get_section_start_address(std::string_view name) const {
+  if (auto sect = get_section(name); sect) {
+    return file_addr{ *this, sect.value()->sh_addr };
+  }
+
+  return std::nullopt;
+}
+
+
 /* private methods  */
 void sdb::elf::build_section_map() {
   for (auto& section : section_headers_) {
@@ -121,5 +131,21 @@ void sdb::elf::parse_section_headers() {
     data_ + header_.e_shoff,
     data_ + header_.e_shoff + sizeof(Elf64_Shdr) * n_headers,
     reinterpret_cast<std::byte*>(section_headers_.data())
+  );
+}
+
+void sdb::elf::parse_symbol_table() {
+  auto opt_symtab = get_section(".symtab");
+  if (!opt_symtab) {
+    opt_symtab = get_section(".dynsym");
+    if (!opt_symtab) return;
+  }
+
+  auto symtab = *opt_symtab;
+  symbol_table_.resize(symtab->sh_size / symtab->sh_entsize);
+  std::copy(
+    data_ + symtab->sh_offset,
+    data_ + symtab->sh_offset + symtab->sh_size,
+    reinterpret_cast<std::byte*>(symbol_table_.data())
   );
 }

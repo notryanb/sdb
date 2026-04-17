@@ -33,10 +33,13 @@ namespace sdb {
       virt_addr load_bias() const { return load_bias_; }
       void notify_loaded(virt_addr address) { load_bias_ = address; }
 
+      std::optional<file_addr> get_section_start_address(std::string_view name) const;
+
 
     private:
       void build_section_map();
       void parse_section_headers();
+      void parse_symbol_table();
       
       int fd_;
       std::filesystem::path path_;
@@ -46,6 +49,7 @@ namespace sdb {
       std::vector<Elf64_Shdr> section_headers_;
       std::unordered_map<std::string_view, Elf64_Shdr*> section_map_;
       virt_addr load_bias_;
+      std::vector<Elf64_Sym> symbol_table_;
   };
 }
 
