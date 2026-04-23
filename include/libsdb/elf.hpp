@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <elf.h>
+#include <map>
 #include <optional>
 #include <string_view>
 #include <unordered_map>
@@ -35,11 +36,18 @@ namespace sdb {
 
       std::optional<file_addr> get_section_start_address(std::string_view name) const;
 
+      std::vector<const Elf64_Sym*> get_symbols_by_name(std::string_view name) const;
+      std::optional<const Elf64_Sym*> get_symbol_at_address(file_addr address) const;
+      std::optional<const Elf64_Sym*> get_symbol_at_address(virt_addr address) const;
+      std::optional<const Elf64_Sym*> get_symbol_containing_address(file_addr address) const;
+      std::optional<const Elf64_Sym*> get_symbol_containing_address(virt_addr address) const;
+
 
     private:
       void build_section_map();
       void parse_section_headers();
       void parse_symbol_table();
+      void build_symbol_maps();
       
       int fd_;
       std::filesystem::path path_;
@@ -50,6 +58,18 @@ namespace sdb {
       std::unordered_map<std::string_view, Elf64_Shdr*> section_map_;
       virt_addr load_bias_;
       std::vector<Elf64_Sym> symbol_table_;
+      std::unordered_multimap<std::string_view, Elf64_Sym*> symbol_name_map_;
+
+      struct range_comparator {
+        bool operator()(
+          std::pair<file_addr, file_addr> lhs,
+          std::pair<file_addr, file_addr> rhs
+        ) const {
+          return lhs.first < rhs.first; // Compare the low address
+        }
+      };
+
+      std::map<std::pair<file_addr, file_addr>, Elf64_Sym*, range_comparator> symbol_addr_map_;
   };
 }
 

@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cxxabi.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -36,6 +38,7 @@ sdb::elf::elf(const std::filesystem::path& path) {
   parse_section_headers();
   build_section_map();
   parse_symbol_table();
+  build_symbol_maps();
 }
 
 sdb::elf::~elf() {
@@ -109,6 +112,13 @@ std::optional<sdb::file_addr> sdb::elf::get_section_start_address(std::string_vi
   return std::nullopt;
 }
 
+std::vector<const Elf64_Sym*> sdb::elf::get_symbols_by_name(std::string_view name) const {
+  auto [begin, end] = symbol_name_map_.equal_range(name);
+  std::vector<const Elf64_Sym*> ret;
+  std::transform(begin, end, std::back_inserter(ret), [](auto& pair) { return pair.second; });
+  return ret;
+}
+
 
 /* private methods  */
 void sdb::elf::build_section_map() {
@@ -148,4 +158,31 @@ void sdb::elf::parse_symbol_table() {
     data_ + symtab->sh_offset + symtab->sh_size,
     reinterpret_cast<std::byte*>(symbol_table_.data())
   );
+}
+
+void sdb::elf::build_symbol_maps() {
+  for (auto& symbol : symbol_table_) {
+    auto mangled_name = get_string(symbol.st_name);
+    int demangle_status;
+
+    auto demangled_name = abi::__cxa_demangle(mangled_name.data(), nullptr, nullptr, &demangle_status);
+
+    if (demangle_status == 0) {
+      symbol_name_map_.insert({ demangled_name, &symbol });
+      free(demangled_name);
+    }
+
+    symbol_name_map_.insert({ mangled_name, &symbol });
+
+    if (symbol.st_value != 0 and
+        symbol.st_name != 0 and
+        ELF64_ST_TYPE(symbol.st_info) != STT_TLS) { // STT_TLS is thread local storage
+      auto addr_range = std::pair(
+        file_addr{ *this, symbol.st_value },
+        file_addr{ *this, symbol.st_value + symbol.st_size }
+      );
+
+      symbol_addr_map_.insert({ addr_range, &symbol });
+    }
+  }
 }
