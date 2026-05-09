@@ -3,6 +3,8 @@
 #include <libsdb/process.hpp>
 #include <libsdb/pipe.hpp>
 
+#include <elf.h>
+#include <fstream>
 #include <memory>
 #include <sys/personality.h>
 #include <sys/ptrace.h>
@@ -517,5 +519,25 @@ sdb::watchpoint& sdb::process::create_watchpoint(virt_addr address, stoppoint_mo
   }
 
   return watchpoints_.push(std::unique_ptr<watchpoint>(new watchpoint(*this, address, mode, size)));
+}
+
+std::unordered_map<int, std::uint64_t> sdb::process::get_auxv() const {
+  auto path = "/proc/" + std::to_string(pid_) + "/auxv";
+  std::ifstream auxv(path);
+
+  std::unordered_map<int, std::uint64_t> ret;
+
+  std::uint64_t id, value;
+
+  auto read = [&](auto& into) {
+    auxv.read(reinterpret_cast<char*>(&into), sizeof(into));
+  };
+
+  for(read(id); id != AT_NULL; read(id)) {
+    read(value);
+    ret[id] = value;
+  }
+
+  return ret;
 }
 

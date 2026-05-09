@@ -119,6 +119,48 @@ std::vector<const Elf64_Sym*> sdb::elf::get_symbols_by_name(std::string_view nam
   return ret;
 }
 
+std::optional<const Elf64_Sym*> sdb::elf::get_symbol_at_address(file_addr address) const {
+  if (address.elf_file() != this) return std::nullopt;
+
+  file_addr null_addr;
+  auto it = symbol_addr_map_.find({ address, null_addr });
+  if (it == end(symbol_addr_map_)) return std::nullopt;
+
+  return it->second;
+}
+
+std::optional<const Elf64_Sym*> sdb::elf::get_symbol_at_address(virt_addr address) const {
+  return get_symbol_at_address(address.to_file_addr(*this));
+}
+
+std::optional<const Elf64_Sym*> sdb::elf::get_symbol_containing_address(file_addr address) const {
+  if (address.elf_file() != this or symbol_addr_map_.empty()) {
+    return std::nullopt;
+  }
+
+  file_addr null_addr;
+  auto it = symbol_addr_map_.lower_bound({ address, null_addr });
+
+  if (it != end(symbol_addr_map_)) {
+    if (auto [key, value] = *it; key.first == address) {
+      return value;
+    }
+  }
+
+  if (it == begin(symbol_addr_map_)) return std::nullopt;
+
+  --it;
+  if (auto [key, value] = *it; key.first < address and key.second > address) {
+    return value;
+  }
+
+  return std::nullopt;
+}
+
+std::optional<const Elf64_Sym*> sdb::elf::get_symbol_containing_address(virt_addr address) const {
+  return get_symbol_containing_address(address.to_file_addr(*this));
+}
+
 
 /* private methods  */
 void sdb::elf::build_section_map() {

@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <optional>
 #include <vector>
+#include <unordered_map>
 #include <libsdb/bit.hpp>
 #include <libsdb/registers.hpp>
 #include <libsdb/breakpoint_site.hpp>
@@ -131,6 +132,8 @@ namespace sdb {
         void set_syscall_catch_policy(syscall_catch_policy info) {
           syscall_catch_policy_ = std::move(info);
         }
+
+        std::unordered_map<int, std::uint64_t> get_auxv() const;
 
         template <class T>
         T read_memory_as(virt_addr address) const {
