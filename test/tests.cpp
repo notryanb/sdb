@@ -11,6 +11,7 @@
 #include <libsdb/process.hpp>
 #include <libsdb/error.hpp>
 #include <libsdb/syscalls.hpp>
+#include <libsdb/target.hpp>
 
 using namespace sdb;
 
@@ -85,6 +86,25 @@ namespace {
     return data[index_of_status_indicator];
   }
 }
+
+TEST_CASE("ELF parser works", "[elf]") {
+  auto path = "targets/hello_sdb";
+  sdb::elf elf (path);
+  auto entry = elf.get_header().e_entry;
+  auto sym = elf.get_symbol_at_address(file_addr{ elf, entry });
+  auto name = elf.get_string(sym.value()->st_name);
+  REQUIRE(name == "_start");
+
+  auto syms = elf.get_symbols_by_name("_start");
+  name = elf.get_string(syms.at(0)->st_name);
+  REQUIRE(name == "_start");
+
+  elf.notify_loaded(virt_addr{ 0xcafecafe });
+  sym = elf.get_symbol_at_address(virt_addr{ 0xcafecafe + entry });
+  name = elf.get_string(sym.value()->st_name);
+  REQUIRE(name == "_start");
+}
+
 
 TEST_CASE("Syscall catchpoints work", "[catchpoint]") {
   auto dev_null = open("/dev/null", O_WRONLY);
