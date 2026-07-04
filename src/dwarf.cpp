@@ -88,7 +88,26 @@ namespace {
     std::unordered_map<std::uint64_t, sdb::abbrev> table;
     std::uint64_t code = 0;
     do {
-      // parse one entry
+      code = cur.uleb128();
+      auto tag = cur.uleb128();
+      auto has_children = static_cast<bool>(cur.u8());
+
+      std::vector<sdb::attr_spec> attr_specs;
+
+      std::uint64_t attr = 0;
+
+      do {
+        attr = cur.uleb128();
+        auto form = cur.uleb128();
+
+        if (attr != 0) {
+          attr_specs.push_back(sdb::attr_spec{ attr, form });
+        }  
+      } while (attr != 0);
+
+      if (code != 0) {
+        table.emplace(code, sdb::abbrev{ code, tag, has_children, std::move(attr_specs) });
+      }
     } while (code != 0);
 
     return table;
@@ -102,4 +121,8 @@ const std::unordered_map<std::uint64_t, sdb::abbrev>& sdb::dwarf::get_abbrev_tab
   }
 
   return abbrev_tables_.at(offset);
+}
+
+const std::unordered_map<std::uint64_t, sdb::abbrev>& sdb::compile_unit::abbrev_table() const {
+  return parent_->get_abbrev_table(abbrev_offset_);
 }
