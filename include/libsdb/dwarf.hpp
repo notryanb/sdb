@@ -5,10 +5,13 @@
 #include <libsdb/types.hpp>
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 #include <unordered_map>
 
 namespace sdb {
+  class compile_unit;
+  
   struct attr_spec {
     std::uint64_t attr;
     std::uint64_t form;  
@@ -46,9 +49,12 @@ namespace sdb {
 
       const std::unordered_map<std::uint64_t, abbrev>& get_abbrev_table(std::size_t offset);
 
+      const std::vector<std::unique_ptr<compile_unit>>& compile_units() const { return compile_units_; }
+
     private:
       const elf* elf_;
       std::unordered_map<std::size_t, std::unordered_map<std::uint64_t, abbrev>> abbrev_tables_;
+      std::vector<std::unique_ptr<compile_unit>> compile_units_;
   };
 };
 

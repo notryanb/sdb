@@ -1,7 +1,8 @@
-#include <libsdb/bit.hpp>
 #include <libsdb/dwarf.hpp>
-#include <libsdb/elf.hpp>
 #include <libsdb/types.hpp>
+#include <libsdb/bit.hpp>
+#include <libsdb/elf.hpp>
+#include <libsdb/error.hpp>
 
 #include <algorithm>
 #include <string_view>
@@ -113,6 +114,43 @@ namespace {
     return table;
   }
 
+  std::unique_ptr<sdb::compile_unit> parse_compile_unit(sdb::dwarf& dwarf, const sdb::elf& obj, cursor cur) {
+    auto start = cur.position();
+    auto size = cur.u32();
+    auto version = cur.u16();
+    auto abbrev = cur.u32();
+    auto address_size = cur.u8();
+
+    if (size == 0xffffffff) {
+      sdb::error::send("Only DWARF32 is supported");
+    }
+    if (version != 4 ) {
+      sdb::error::send("Only DWARF version 4 is supported");
+    }
+    if (address_size != 8) {
+      sdb::error::send("Invalid address size for DWARF");
+    }
+
+    size += sizeof(std::uint32_t);
+
+    sdb::span<const std::byte> data = { start, size };
+    return std::make_unique<sdb::compile_unit>(dwarf, data, abbrev);
+  }
+
+  std::vector<std::unique_ptr<sdb::compile_unit>> parse_compile_units(sdb::dwarf& dwarf, const sdb::elf& obj) {
+    auto debug_info = obj.get_section_contents(".debug_info");
+    cursor cur(debug_info);
+
+    std::vector<std::unique_ptr<sdb::compile_unit>> units;
+    while (!cur.finished()) {
+      auto unit = parse_compile_unit(dwarf, obj, cur);
+      cur += unit->data().size();
+      units.push_back(std::move(unit));
+    }
+
+    return units;
+  }
+
 }
 
 const std::unordered_map<std::uint64_t, sdb::abbrev>& sdb::dwarf::get_abbrev_table(std::size_t offset) {
@@ -125,4 +163,8 @@ const std::unordered_map<std::uint64_t, sdb::abbrev>& sdb::dwarf::get_abbrev_tab
 
 const std::unordered_map<std::uint64_t, sdb::abbrev>& sdb::compile_unit::abbrev_table() const {
   return parent_->get_abbrev_table(abbrev_offset_);
+}
+
+sdb::dwarf::dwarf(const sdb::elf& parent) : elf_(&parent) {
+  compile_units_ = parse_compile_units(*this, parent);
 }
