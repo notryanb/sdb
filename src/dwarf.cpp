@@ -280,6 +280,8 @@ sdb::die::children_range::iterator::operator++() {
   if (!die_->abbrev_->has_children) {
     cursor next_cur({ die_->next_, die_->cu_->data().end() });
     die_ = parse_die(*die_->cu_, next_cur);
+  } else if (die_->contains(DW_AT_sibling)) {
+      die_ = die_.value()[DW_AT_sibling].as_reference();
   } else {
     iterator sub_children(*die_);
     while (sub_children->abbrev_) ++sub_children;
@@ -306,7 +308,7 @@ bool sdb::die::contains(std::uint64_t attribute) const {
   return std::find_if(begin(specs), end(specs), [=](auto spec) { return spec.attr == attribute; }) != end(specs);
 }
 
-sdb::attr sdb::die::operator[](std::uin64_t attribute) const {
+sdb::attr sdb::die::operator[](std::uint64_t attribute) const {
   auto& specs = abbrev_->attr_specs;
 
   for (std::size_t i = 0; i < specs.size(); ++i) {
@@ -417,4 +419,106 @@ sdb::die sdb::attr::as_reference() const {
 
   cursor ref_cur({ cu_->data().begin() + offset, cu_->data().end() });
   return parse_die(*cu_, ref_cur);
+}
+
+std::string_view sdb::attr::as_string() const {
+  cursor cur({ location_, cu_->data_.end() });
+
+  switch (form_) {
+    case DW_FORM_string:
+      return cur.string();
+    case DW_FORM_strp: {
+      auto offset = cur.u32();
+      auto stab = cu_->dwarf_info()->elf_file()->get_section_contents(".debug_str");
+      cursor stab_cur({ stab.begin() + offset, stab.end() });
+      return stab_cur.string();
+    }
+    default:
+      error::send("Invalid string type");
+  }
+}
+
+sdb::file_addr sdb::die::low_pc() const {
+  return (*this)[DW_AT_low_pc].as_address();
+}
+
+sdb::file_addr sdb::die::high_pc() const {
+  auto attr = (*this)[DW_AT_high_pc];
+  std::uint64_t addr;
+
+  if (attr.form() == DW_FORM_addr) {
+    addr = attr.as_address();
+  } else {
+    addr = low_pc() + attr.as_int();
+  }
+
+  return file_addr{
+    *cu_->dwarf_info()->elf_file(),
+    addr
+  };
+}
+
+sdb::range_list::iterator::iterator(const compile_unit* cu, sdb::span<const std::byte> data, file_addr base_address)
+  : cu_(cu), data_(data), base_address_(base_address), pos_(data.begin()) {
+  ++(*this);    
+}
+
+sdb::range_list::iterator& sdb::range_list::iterator::operator++() {
+  auto elf = cu_->dwarf_info()->elf_file();
+  constexpr auto base_address_flag = ~static_cast<std::uint64_t>(0); // set all bits to 1
+
+  cursor cur({ pos_, data_.end() });
+  while (true) {
+    current_.low = file_addr{ *elf, cur.u64() };
+    current_.high =  = file_addr{ *elf, cur.u64() };
+
+    if (current_.low.addr() == base_address_flag) {
+      base_address_ = current_.high;
+    } else if (current_.low.addr() == 0 and current_.high.addr() == 0) {
+      /* end of list indicator. Iteration is complete */
+      pos_ = nullptr;
+      break;
+    } else {
+      pos_ = cur.position();
+      current_.low += base_address_.addr();
+      current_.high += base_address_.addr();
+      break;
+    }
+  }
+
+  return *this;
+}
+
+sdb::range_list::iterator sdb::range_list_iterator::operator++(int) {
+  auto tmp = *this;
+  ++(*this);
+  return tmp;
+}
+
+sdb::range_list sdb::attr::as_range_list() const {
+  auto section = cu_->dwarf_info()->elf_file()->get_section_contents(".debug_ranges");
+  auto offset = as_section_offset();
+  span<const stb::byte> data(section.begin() + offset, section.end());
+
+  auto root = cu_->root();
+
+  file_addr base_address = root.contains(DW_AT_low_pc) ? root[DW_AT_low_pc].as_address() : file_addr{};
+
+  return { cu_, data, base_address };
+}
+
+sdb::range_list::iterator sdb::range_list::begin() const {
+  return { cu_, data_, base_address_ };
+}
+
+sdb::range_list::iterator sdb::range_list::end() const {
+  return {};
+}
+
+bool sdb::range_list::contains(file_addr address) const {
+  return std::any_of(
+     begin(),
+     end(),
+     [=](auto& e) { return e.contains(address); }
+   );
 }

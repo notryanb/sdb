@@ -13,6 +13,65 @@
 
 namespace sdb {
   class compile_unit;
+  class range_list {
+    public:
+      range_list(const compile_unit* cu, span<const std::byte> data, file_addr base_address)
+        : cu_(cu), data_(data), base_address_(base_address) {}
+
+      struct entry {
+        file_addr low;
+        file_addr high;
+
+        bool contains(file_addr addr) const {
+          return low <= addr and addr < high;
+        }
+      };
+
+      class iterator;
+      iterator begin() const;
+      iterator end() const;
+
+      bool contains(file_addr address) const;
+      
+    private:
+      const compile_unit* cu_;
+      span<const std::byte> data_;
+      file_addr base_address_;
+  };
+
+  class range_list::iterator {
+    public:
+      using value_type = entry;
+      using reference = const entry&;
+      using pointer = const entry*;
+      using difference_type = std::ptrdiff_t;
+      using iterator_category = std::forward_iterator_tag;
+
+      iterator(const compile_unit* cu, span<const std::byte> data, file_addr base_address);
+
+      iterator() = default;
+      iterator(const iterator&) = default;
+      iterator& operator=(const iterator&) = default;
+
+      const entry& operator*() const { return current_; }
+      const entry* operator->() const { return &current_; }
+
+      bool operator==(iterator rhs) const { return pos_ == rhs.pos_; }
+      bool operator!=(iterator rhs) const { return pos_ != rhs.pos_; }
+
+      iterator& operator++();
+      iterator operator++(int);
+
+    private:
+      const compile_unit* cu_;
+      span<const std::byte> data_{ nullptr, nullptr };
+      file_addr base_address_;
+      const std::byte* pos_ = nullptr;
+      entry current_;
+  };
+
+  
+  class compile_unit;
   class die;
   class attr {
     public:
@@ -28,6 +87,7 @@ namespace sdb {
     std::uint64_t as_int() const;
     std::string_view as_string() const;
     die as_reference() const;
+    range_list as_range_list() const;
   
     private:
       const compile_unit* cu_;
@@ -84,6 +144,9 @@ namespace sdb {
 
       bool contains(std::uint64_t attribute) const;
       attr operator[](std::uint64_t attribute) const;
+
+      file_addr low_pc() const;
+      file_addr high_pc() const;
 
     private:
       const std::byte* pos_ = nullptr;
