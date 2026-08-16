@@ -313,7 +313,7 @@ sdb::attr sdb::die::operator[](std::uint64_t attribute) const {
 
   for (std::size_t i = 0; i < specs.size(); ++i) {
     if (specs[i].attr == attribute) {
-      return { cu_, specs[i].attr, specs[i].form, attr_locs_[i} };
+      return { cu_, specs[i].attr, specs[i].form, attr_locs_[i] };
     }
   }
 
@@ -422,7 +422,7 @@ sdb::die sdb::attr::as_reference() const {
 }
 
 std::string_view sdb::attr::as_string() const {
-  cursor cur({ location_, cu_->data_.end() });
+  cursor cur({ location_, cu_->data().end() });
 
   switch (form_) {
     case DW_FORM_string:
@@ -498,7 +498,7 @@ sdb::range_list::iterator sdb::range_list_iterator::operator++(int) {
 sdb::range_list sdb::attr::as_range_list() const {
   auto section = cu_->dwarf_info()->elf_file()->get_section_contents(".debug_ranges");
   auto offset = as_section_offset();
-  span<const stb::byte> data(section.begin() + offset, section.end());
+  span<const std::byte> data(section.begin() + offset, section.end());
 
   auto root = cu_->root();
 
@@ -521,4 +521,49 @@ bool sdb::range_list::contains(file_addr address) const {
      end(),
      [=](auto& e) { return e.contains(address); }
    );
+}
+
+bool sdb::die::contains_address(file_addr address) const {
+  if (address.elf_file() != this->cu_.dwarf_info()->elf_file()) {
+    return false;
+  }
+
+  if (contains(DW_AT_ranges)) {
+    return (*this)[DW_AT_ranges].as_range_list().contains(address);
+  } else if (contains(DW_AT_low_pc)) {
+    return low_pc() <= address and high_pc() > address;
+  }
+
+  return false;
+}
+
+sdb::file_addr sdb::die::low_pc() const {
+  if (contains(DW_AT_ranges)) {
+    auto first_entry = (*this)[DW_AT_ranges].as_range_list().begin();
+    return first_entry->low;
+  } else if (contains(DW_AT_low_pc)) {
+    return (*this)[DW_AT_low_pc].as_address();
+  }
+
+  error::send("DIE does not have a low PC");
+}
+
+sdb::file_addr sdb::die::high_pc() const {
+  if (contains(DW_AT_ranges)) {
+    auto ranges = (*this)[DW_AT_ranges].as_range_list();
+    auto it = ranges.begin();
+    while (std::next(it) != ranges.end()) ++it;
+    return it->high;
+  } else if (contains(DW_AT_high_pc)) {
+    auto attr = (*this)[DW_AT_high_pc];
+    file_addr addr;
+
+    if (attr.form() == DW_FORM_addr) {
+      return attr.as_address();
+    } else {
+      return low_pc() + attr.as_int();
+    }
+  }
+
+  error::send("DIE does not have a high PC");
 }

@@ -8,11 +8,13 @@
 #include <memory>
 #include <optional>
 #include <vector>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 
 namespace sdb {
   class compile_unit;
+  class die;
   class range_list {
     public:
       range_list(const compile_unit* cu, span<const std::byte> data, file_addr base_address)
@@ -63,20 +65,17 @@ namespace sdb {
       iterator operator++(int);
 
     private:
-      const compile_unit* cu_;
+      const compile_unit* cu_ = nullptr;
       span<const std::byte> data_{ nullptr, nullptr };
       file_addr base_address_;
       const std::byte* pos_ = nullptr;
       entry current_;
   };
 
-  
-  class compile_unit;
-  class die;
   class attr {
     public:
-      attr(const compile_unit* cu, std::uint64_t type, std::uint64_t form, const std::byte* location) :
-        cu_(cu), type_(type), form_(form), location_(location) {}
+      attr(const compile_unit* cu, std::uint64_t type, std::uint64_t form, const std::byte* location)
+        : cu_(cu), type_(type), form_(form), location_(location) {}
 
     std::uint64_t name() const { return type_; }
     std::uint64_t form() const { return form_; }
@@ -97,6 +96,7 @@ namespace sdb {
       
   };
 
+  class elf;
   struct attr_spec {
     std::uint64_t attr;
     std::uint64_t form;  
@@ -144,6 +144,7 @@ namespace sdb {
 
       bool contains(std::uint64_t attribute) const;
       attr operator[](std::uint64_t attribute) const;
+      bool contains_address(file_addr address) const;
 
       file_addr low_pc() const;
       file_addr high_pc() const;
@@ -158,7 +159,7 @@ namespace sdb {
 
   class die::children_range {
     public:
-      children_range(die die) : die_(std::move(die)) {}
+      children_range(const die die) : die_(std::move(die)) {}
       
       class iterator {
         public:
@@ -188,19 +189,20 @@ namespace sdb {
         private:
           std::optional<die> die_;          
       };
+
       iterator begin() const {
         if (die_.abbrev_->has_children) {
           return iterator{ die_ };
         }
         return end();
       }
+
       iterator_end() const { return iterator{}; }
 
     private:
       die die_;
   };
   
-  class elf;
   class dwarf {
     public:
       dwarf(const elf& parent);
