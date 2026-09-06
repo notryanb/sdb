@@ -12,6 +12,7 @@
 
 
 namespace sdb {
+  class dwarf;
   class elf {
     public:
       elf(const std::filesystem::path& path);
@@ -42,6 +43,9 @@ namespace sdb {
       std::optional<const Elf64_Sym*> get_symbol_containing_address(file_addr address) const;
       std::optional<const Elf64_Sym*> get_symbol_containing_address(virt_addr address) const;
 
+      dwarf& get_dwarf() { return *dwarf_; }
+      const dwarf& get_dwarf() const { return *dwarf_; }
+
 
     private:
       void build_section_map();
@@ -59,6 +63,7 @@ namespace sdb {
       virt_addr load_bias_;
       std::vector<Elf64_Sym> symbol_table_;
       std::unordered_multimap<std::string_view, Elf64_Sym*> symbol_name_map_;
+      std::unique_ptr<dwarf> dwarf_;
 
       struct range_comparator {
         bool operator()(

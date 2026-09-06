@@ -149,6 +149,8 @@ namespace sdb {
       file_addr low_pc() const;
       file_addr high_pc() const;
 
+      std::optional<std::string_view> name() const;
+
     private:
       const std::byte* pos_ = nullptr;
       const compile_unit* cu_ = nullptr;
@@ -197,7 +199,7 @@ namespace sdb {
         return end();
       }
 
-      iterator_end() const { return iterator{}; }
+      iterator end() const { return iterator{}; }
 
     private:
       die die_;
@@ -212,10 +214,23 @@ namespace sdb {
 
       const std::vector<std::unique_ptr<compile_unit>>& compile_units() const { return compile_units_; }
 
+      const compile_unit* compile_unit_containing_address(file_addr address) const;
+      std::optional<die> function_containing_address(file_addr address) const;
+      std::vector<die> find_functions(std::string name) const;
+
     private:
       const elf* elf_;
+      void index() const;
+      void index_die(const die& current) const;
       std::unordered_map<std::size_t, std::unordered_map<std::uint64_t, abbrev>> abbrev_tables_;
       std::vector<std::unique_ptr<compile_unit>> compile_units_;
+
+      struct index_entry {
+        const compile_unit* cu;
+        const std::byte* pos;
+      };
+
+      mutable std::unordered_multimap<std::string, index_entry> function_index_;
   };
 };
 
