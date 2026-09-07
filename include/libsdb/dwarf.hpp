@@ -5,6 +5,7 @@
 #include <libsdb/types.hpp>
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -109,6 +110,25 @@ namespace sdb {
     std::vector<attr_spec> attr_specs;
   };
 
+  class line_table {
+    public:
+      struct file {
+        std::filesystem::path path;
+        std::uint64_t modification_time;
+        std::uint64_t file_length;
+      };
+
+    private:
+      sdb::span<const std::byte> data_;
+      const compile_unit* cu_;
+      bool default_is_stmt_;
+      std::int8_t line_base_;
+      std::uint8_t line_range_;
+      std::uint8_t opcode_base_;
+      std::vector<std::filesystem::path> include_directories_;
+      mutable std::vector<file> file_names_;
+  };
+  
   class die;
   class dwarf;
   class compile_unit {
