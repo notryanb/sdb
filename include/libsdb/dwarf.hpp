@@ -110,6 +110,7 @@ namespace sdb {
     std::vector<attr_spec> attr_specs;
   };
 
+  /* Maps debug to source code */
   class line_table {
     public:
       struct file {
@@ -118,14 +119,57 @@ namespace sdb {
         std::uint64_t file_length;
       };
 
+      /* line table values should be unique, so disable copy behaviors */
+      line_table(const line_table&) = delete;
+      line_table& operator=(const line_table&) = delete;
+
+      
+      line_table(
+        sdb::span<const std::byte> data,
+        const compile_unit* cu,
+        bool default_is_stmt, std::int8_t line_base,
+        std::uint8_t line_range, std::uint8_t opcode_base,
+        std::vector<std::filesystem::path> include_directories,
+        std::vector<file> file_names
+      ) : data_(data)
+        , cu_(cu)
+        , default_is_stmt_(default_is_stmt)
+        , line_base_(line_base)
+        , line_range_(line_range)
+        , opcode_base_(opcode_base)
+        , include_directories_(std::move(include_directories))
+        , file_names_(std::move(file_names))
+      {}
+
+      const compile_unit& cu() const { return *cu_; }
+      const std::vector<file>& file_names() const { return file_names_; }
+
     private:
       sdb::span<const std::byte> data_;
       const compile_unit* cu_;
+
+      /* Determine if rows in the matrix should be interpreted as the
+      beginning of source code statements by default. */
       bool default_is_stmt_;
+
+      /* The min value that special opcodes can add to the line_register*/
       std::int8_t line_base_;
+
+      /* The range of values that special opcodes can add to the line_register */
       std::uint8_t line_range_;
+
+      /* The number assigned to the first special opcode */
       std::uint8_t opcode_base_;
+
+      /* The paths searched for included files. May be an absolute path
+      or relative path to the compilation directory. The sequence ends with a single null byte */
       std::vector<std::filesystem::path> include_directories_;
+
+      /*
+        The source files involved in this compilation.
+        We want the const qualifications for the other members, but
+        allow the file names to be appended even if the line table itself is const.
+      */
       mutable std::vector<file> file_names_;
   };
   
@@ -133,8 +177,9 @@ namespace sdb {
   class dwarf;
   class compile_unit {
     public:
-      compile_unit(dwarf& parent, span<const std::byte> data, std::size_t abbrev_offset)
-        : parent_(&parent), data_(data), abbrev_offset_(abbrev_offset) {}
+      // compile_unit(dwarf& parent, span<const std::byte> data, std::size_t abbrev_offset)
+      //   : parent_(&parent), data_(data), abbrev_offset_(abbrev_offset) {}
+      compile_unit(dwarf& parent, span<const std::byte> data, std::size_t abbrev_offset);
 
       const dwarf* dwarf_info() const { return parent_; }
       span<const std::byte> data() const { return data_; }
@@ -142,10 +187,13 @@ namespace sdb {
       const std::unordered_map<std::uint64_t, sdb::abbrev>& abbrev_table() const;
       die root() const;
 
+      const line_table& lines() const { return *line_table_; }
+
     private:
       dwarf* parent_;
       span<const std::byte> data_;
       std::size_t abbrev_offset_;
+      std::unique_ptr<line_table> line_table_;
   };
 
   class die {
