@@ -113,6 +113,12 @@ namespace sdb {
   /* Maps debug to source code */
   class line_table {
     public:
+      class iterator;
+      iterator begin() const;
+      iterator end() const;
+
+      struct entry;
+      
       struct file {
         std::filesystem::path path;
         std::uint64_t modification_time;
@@ -171,6 +177,80 @@ namespace sdb {
         allow the file names to be appended even if the line table itself is const.
       */
       mutable std::vector<file> file_names_;
+  };
+
+  /* These entries are considered the registers of a virtual machine */
+  struct line_table::entry {
+    /* The program counter value marking the start of the mapping's machine instructions */
+    file_addr address;
+
+    std::uint64_t file_index = 1;
+
+    /* The source line number. Instructions that do not map to source lines are 0 */
+    std::uint64_t line = 1;
+
+    /* The column number within a source line */
+    std::uint64_t column = 0;
+
+    /* Whether this instruction marks the beginning of a statement - recommended for a breakpoint */
+    bool is_stmt;
+
+    /* Indicates if the instructions marks the start of a basic block, which is a series of instructions without branches */
+    bool basic_block_start = false;
+
+    /* Indicates if the entry is special and marks the byte immediately following a sequence of instructions */
+    bool end_sequence = false;
+
+    /* Indicates if the instruction marks the end of a function's prologue and should be used for function entry break points */
+    bool prologue_end = false;
+
+    /* Indicates if the instruction marks the beginning of the function epilogue and should be used for function exit break points */
+    bool epilogue_begin = false;
+
+    /* Gives performance profilers information about which basic block a given instruction belongs to */
+    std::uint64_t discriminator = 0;
+
+    file* file_entry = nullptr;
+
+    bool operator==(const entry& rhs) const {
+      return address == rhs.address and
+        file_index == rhs.file_index and
+        line == rhs.line and
+        column == rhs.column and
+        discriminator == rhs.discriminator;
+    }
+  };
+
+  class line_table::iterator {
+    public:
+      using value_type = entry;
+      using pointer = const entry*;
+      using reference = const entry&;
+      using difference_type = std::ptrdiff_t;
+      using iterator_category = std::forward_iterator_tag;
+
+      iterator(const line_table* table_);
+
+      iterator() = default;
+      iterator(const iterator&) = default;
+      iterator& operator=(const iterator&) = default;
+
+      const line_table::entry& operator*() const { return current_; }
+      const line_table::entry* operator->() const { return &current_; }
+
+      bool operator==(const iterator& rhs) const { return pos_ == rhs.pos_; }
+      bool operator!=(const iterator& rhs) const { return pos_ != rhs.pos_; }
+
+      iterator& operator++();
+      iterator operator++(int);
+      
+    private:
+      bool execute_instruction();
+
+      const line_table* table_;
+      line_table::entry current_;
+      line_table::entry registers_;
+      const std::byte* pos_;
   };
   
   class die;

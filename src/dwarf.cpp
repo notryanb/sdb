@@ -741,3 +741,55 @@ void sdb::dwarf::index_die(const die& current) const {
     index_die(child);
   }
 }
+
+sdb::line_table::iterator::iterator(const sdb::line_table* table)
+  : table_(table), pos_(table->data_.begin()
+) {
+    registers_.is_stmt = table->default_is_stmt_;
+    ++(*this);
+}
+
+sdb::line_table::iterator sdb::line_table::begin() const {
+  return iterator(this);
+}
+
+sdb::line_table::iterator sdb::line_table::end() const {
+  return {};
+}
+
+sdb::line_table::iterator& sdb::line_table::iterator::operator++() {
+  if (pos_ == table_->data_.end()) {
+    pos_ = nullptr;
+    return *this;
+  }
+
+  bool emitted = false;
+
+  do {
+    emitted = execute_instruction();
+  } while (!emitted);
+
+  // file indices begin with 1 instead of 0
+  current_.file_entry = &table_->file_names_[current_.file_index - 1];
+  return *this;
+}
+
+sdb::line_table::iterator sdb::line_table::iterator::operator++(int) {
+  auto tmp = *this;
+  ++(*this);
+  return tmp;
+}
+
+bool sdb::line_table::iterator::execute_instruction() {
+  auto elf = table_->cu_->dwarf_info()->elf_file();
+  cursor cur({ pos_, table_->data_.end() });
+  auto opcode = cur.u8();
+  bool emitted = false;
+
+  if (opcode > 0 and opcode < table_->opcode_base_) {
+    // handle standard opcode
+  }
+
+  pos_ = cur.position();
+  return emitted;
+}
