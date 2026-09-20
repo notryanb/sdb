@@ -150,6 +150,9 @@ namespace sdb {
       const compile_unit& cu() const { return *cu_; }
       const std::vector<file>& file_names() const { return file_names_; }
 
+      iterator get_entry_by_address(file_addr address) const;
+      std::vector<iterator> get_entries_by_line(std::filesystem::path path, std::size_t line) const;
+
     private:
       sdb::span<const std::byte> data_;
       const compile_unit* cu_;
@@ -276,6 +279,11 @@ namespace sdb {
       std::unique_ptr<line_table> line_table_;
   };
 
+  struct source_location {
+    const line_table::file* file;
+    std::uint64_t line;
+  };
+
   class die {
     public:
       explicit die(const std::byte* next) : next_(next) {}
@@ -298,6 +306,10 @@ namespace sdb {
       file_addr high_pc() const;
 
       std::optional<std::string_view> name() const;
+
+      source_location location() const;
+      const line_table::file& file() const;
+      std::uint64_t line() const;
 
     private:
       const std::byte* pos_ = nullptr;
@@ -365,6 +377,12 @@ namespace sdb {
       const compile_unit* compile_unit_containing_address(file_addr address) const;
       std::optional<die> function_containing_address(file_addr address) const;
       std::vector<die> find_functions(std::string name) const;
+
+      line_table::iterator line_entry_at_address(file_addr address) const {
+        auto cu = compile_unit_containing_address(address);
+        if (!cu) return {};
+        return cu->lines().get_entry_by_address(address);
+      }
 
     private:
       const elf* elf_;

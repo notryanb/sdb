@@ -859,8 +859,87 @@ bool sdb::line_table::iterator::execute_instruction() {
       default:
         error::send("Unexpected extended opcode");
     }
+  } else {
+    auto adjusted_opcode = opcode - table_->opcode_base_;
+    registers_.address += adjusted_opcode / table_->line_range_;
+    registers_.line += table_->line_base_ + (adjusted_opcode % table_->line_range_);
+    current_ = registers_;
+    registers_.basic_block_start = false;
+    registers_.prologue_end = false;
+    registers_.epilogue_begin = false;
+    registers_.discriminator = 0;
+    emitted = true;
   }
 
   pos_ = cur.position();
   return emitted;
+}
+
+sdb::line_table::iterator sdb::line_table::get_entry_by_address(file_addr address) const {
+  auto prev = begin();
+  if (prev == end()) {
+    return prev;
+  }
+
+  auto it = prev;
+  for (++it; it != end(); prev = it++) {
+    if (prev->address <= address and it->address > address and !prev->end_sequence) {
+      return prev;
+    }
+  }
+
+  return end();
+}
+
+bool path_ends_in(const std::filesystem::path& lhs, const std::filesystem::path& rhs) {
+  auto lhs_size = std::distance(lhs.begin(), lhs.end());
+  auto rhs_size = std::distance(rhs.begin(), rhs.end());
+
+  if (rhs_size > lhs_size) {
+    return false;
+  }
+
+  auto start = std::next(lhs.begin(), lhs_size - rhs_size);
+
+  return std::equal(start, lhs.end(), rhs.begin());
+}
+
+std::vector<sdb::line_table::iterator> sdb::line_table::get_entries_by_line(std::filesystem::path path, std::size_t line) const {
+  std::vector<iterator> entries;
+
+  for (auto it = begin(); it != end(); ++it) {
+    auto& entry_path = it->file_entry->path;
+
+    if (it->line == line) {
+      if ((path.is_absolute() and entry_path == path) or (path.is_relative() and path_ends_in(entry_path, path))) {
+        entries.push_back(it);
+      }
+    }
+  }
+
+  return entries;
+}
+
+sdb::source_location sdb::die::location() const {
+  return { &file(), line() };
+}
+
+const sdb::line_table::file& sdb::die::file() const {
+  std::uint64_t idx;
+
+  if (abbrev_->tag == DW_TAG_inlined_subroutine) {
+    idx = (*this)[DW_AT_call_file].as_int();
+  } else {
+    idx = (*this)[DW_AT_decl_file].as_int();
+  }
+
+  return this->cu_->lines().file_names()[idx - 1];
+}
+
+std::uint64_t sdb::die::line() const {
+  if (abbrev_->tag == DW_TAG_inlined_subroutine) {
+    return (*this)[DW_AT_call_line].as_int();
+  }
+
+  return (*this)[DW_AT_decl_line].as_int();
 }
