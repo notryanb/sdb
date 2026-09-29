@@ -20,6 +20,7 @@ namespace sdb {
 
       const process& get_process() const { return *process_; }
       const elf& get_elf() const { return *elf_; }
+      void notify_stop(const sdb::stop_reason& reason);
 
     private:
       target(std::unique_ptr<process> proc, std::unique_ptr<elf> obj)

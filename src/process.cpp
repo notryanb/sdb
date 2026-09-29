@@ -2,6 +2,7 @@
 #include <libsdb/error.hpp>
 #include <libsdb/process.hpp>
 #include <libsdb/pipe.hpp>
+#include <libsdb/target.hpp>
 
 #include <elf.h>
 #include <fstream>
@@ -266,6 +267,8 @@ sdb::stop_reason sdb::process::wait_on_signal() {
         reason = maybe_resume_from_syscall(reason);
       }
     }
+
+    if (target_) target_->notify_stop(reason);
   }
   
   return reason;

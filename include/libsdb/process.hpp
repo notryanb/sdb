@@ -77,6 +77,7 @@ namespace sdb {
       std::vector<int> to_catch_;
   };
   
+  class target;
   class process {
     public:
         static std::unique_ptr<process> launch(
@@ -148,6 +149,7 @@ namespace sdb {
 
         void augment_stop_reason(stop_reason& reason);
         std::variant<breakpoint_site::id_type, watchpoint::id_type> get_current_hardware_stoppoint() const;
+        void set_target(target* tgt) { target_ = tgt; }
         
     private:
       process(pid_t pid, bool terminate_on_end, bool is_attached) 
@@ -165,6 +167,7 @@ namespace sdb {
       void read_all_registers();
       int set_hardware_stoppoint(virt_addr address, stoppoint_mode mode, std::size_t size);
       sdb::stop_reason maybe_resume_from_syscall(const stop_reason& reason);
+      target* target_ = nullptr;
 
       std::unique_ptr<registers> registers_;
       stoppoint_collection<breakpoint_site> breakpoint_sites_;
