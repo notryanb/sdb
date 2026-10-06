@@ -4,6 +4,7 @@
 #include<memory>
 #include<libsdb/elf.hpp>
 #include<libsdb/process.hpp>
+#include<libsdb/stack.hpp>
 
 namespace sdb {
   class target {
@@ -22,12 +23,18 @@ namespace sdb {
       const elf& get_elf() const { return *elf_; }
       void notify_stop(const sdb::stop_reason& reason);
 
+      file_addr get_pc_file_address() const;
+
+      stack& get_stack() { return stack_; }
+      const stack& get_stack() const { return stack_; }
+
     private:
       target(std::unique_ptr<process> proc, std::unique_ptr<elf> obj)
-        : process_(std::move(proc)), elf_(std::move(obj)) {}
+        : process_(std::move(proc)), elf_(std::move(obj)), stack_(this) {}
 
       std::unique_ptr<process> process_;
       std::unique_ptr<elf> elf_;
+      stack stack_;
   };
 }
 

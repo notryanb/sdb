@@ -34,3 +34,11 @@ std::unique_ptr<sdb::target> sdb::target::attach(pid_t pid) {
 
   return tgt;
 }
+
+sdb::file_addr sdb::target::get_pc_file_address() const {
+  return process_->get_pc().to_file_addr(*elf_);
+}
+
+void sdb::target::notify_stop(const sdb::stop_reason& reason) {
+  stack_.reset_inline_height();
+}
