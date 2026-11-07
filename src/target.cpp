@@ -1,4 +1,8 @@
 #include <csignal>
+#include <optional>
+
+#include <libsdb/bit.hpp>
+#include <libsdb/disassembler.hpp>
 #include <libsdb/target.hpp>
 #include <libsdb/types.hpp>
 
@@ -113,4 +117,58 @@ sdb::stop_reason sdb::target::run_until_address(virt_addr address) {
   }
 
   return reason;
+}
+
+sdb::stop_reason sdb::target::step_over() {
+  auto orig_line = line_entry_at_pc();
+  disassembler disas(*process_);
+
+  sdb::stop_reason reason;
+  auto& stack = get_stack();
+
+  do {
+    auto inline_stack = stack.inline_stack_at_pc();
+    auto at_start_of_inline_frame = stack.inline_height() > 0;
+
+    if (at_start_of_inline_frame) {
+      auto frame_to_skip = inline_stack[inline_stack.size() - stack.inline_height()];
+      auto return_address = frame_to_skip.high_pc().to_virt_addr();
+      reason = run_until_address(return_address);
+
+      if (!reason.is_step() or process_->get_pc() != return_address) {
+        return reason;
+      }
+    } else if (auto instructions = disas.disassemble(2, process_->get_pc()); instructions[0].text.rfind("call") == 0) {
+      reason = run_until_address(instructions[1].address);
+
+      if (!reason.is_step() or process_->get_pc() != instructions[1].address) {
+        return reason;
+      }
+    } else {
+      reason = process_->step_instruction();
+      if (!reason.is_step()) return reason;
+    }
+  } while (
+    (line_entry_at_pc() == orig_line or line_entry_at_pc()->end_sequence)
+     and line_entry_at_pc() != line_table::iterator{}
+  );
+
+  return reason;
+}
+
+sdb::stop_reason sdb::target::step_out() {
+  auto& stack = get_stack();
+  auto inline_stack = stack.inline_stack_at_pc();
+  auto has_inline_frames = inline_stack.size() > 1;
+  auto at_inline_frame = stack.inline_height() < inline_stack.size() - 1;
+
+  if (has_inline_frames and at_inline_frame) {
+    auto current_frame = inline_stack[inline_stack.size() - stack.inline_height() - 1];
+    auto return_address = current_frame.high_pc().to_virt_addr();
+    return run_until_address(return_address);
+  }
+
+  auto frame_pointer = process_->get_registers().read_by_id_as<std::uint64_t>(register_id::rbp);
+  auto return_address = process_->read_memory_as<std::uint64_t>(virt_addr{ frame_pointer + 8 });
+  return run_until_address(virt_addr{ return_address });
 }

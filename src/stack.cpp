@@ -17,3 +17,5 @@ void sdb::stack::reset_inline_height() {
     ++inline_height_;
   }
 }
+
+
